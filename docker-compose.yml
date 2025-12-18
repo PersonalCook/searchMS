@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      xpack.security.enabled: false
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+      start_period: 3s
+    networks:
+      - personalcook_net
+
+  search_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ELASTICSEARCH_HOST: http://elasticsearch:9200
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      SOCIAL_SERVICE_URL: http://social_service:8000
+      RECIPE_SERVICE_URL: http://recipe_service:8000/recipes
+      USER_SERVICE_URL: http://user_service:8000/users
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "8002:8000"
+    networks:
+      - personalcook_net
+
+volumes:
+  esdata:
+
+networks:
+  personalcook_net:
+    external: true
+    name: personalcook-net

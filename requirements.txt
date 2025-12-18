@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+pydantic
+python-dotenv
+httpx
+elasticsearch
+aiohttp
+PyJWT
+# PREVERI �OE JE TREBA KAK��NE DODAT
