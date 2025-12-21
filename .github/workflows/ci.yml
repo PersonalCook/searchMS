@@ -64,7 +64,7 @@ jobs:
       - name: Smoke test
         run: |
           for i in {1..15}; do
-            if curl -fsS http://localhost:8002/; then
+            if curl -fsS http://localhost:8002/health; then
               exit 0
             fi
             sleep 2
