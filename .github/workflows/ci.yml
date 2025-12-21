@@ -36,7 +36,7 @@ jobs:
           docker run -d --name searchms-es --network searchms-net \
             -e discovery.type=single-node \
             -e xpack.security.enabled=false \
-            -e ES_JAVA_OPTS=-Xms512m -Xmx512m \
+            -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
             -p 9200:9200 \
             docker.elastic.co/elasticsearch/elasticsearch:7.17.0
       - name: Wait for Elasticsearch
