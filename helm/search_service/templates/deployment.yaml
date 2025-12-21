@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-service
+  labels:
+    app.kubernetes.io/name: search_service
+    app.kubernetes.io/instance: search-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: search_service
+      app.kubernetes.io/instance: search-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: search_service
+        app.kubernetes.io/instance: search-service
+    spec:
+      containers:
+        - name: search-service
+          image: piasotlar/search_service:v3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: ELASTICSEARCH_HOST
+              value: https://quickstart-es-http:9200
+
+            - name: ELASTICSEARCH_USER
+              value: elastic
+
+            - name: ELASTICSEARCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: quickstart-es-elastic-user
+                  key: elastic
+
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: jwt-secret
+            - name: JWT_ALGORITHM
+              value: HS256
+            - name: SOCIAL_SERVICE_URL
+              value: http://social-service:8000
+            - name: RECIPE_SERVICE_URL
+              value: http://recipe-service:8000/recipes
+            - name: USER_SERVICE_URL
+              value: http://user-service:8000/users
+          livenessProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
