@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: search-service
-          image: piasotlar/search_service:v3
+          image: piasotlar/search_service:v5
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

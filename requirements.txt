@@ -8,4 +8,4 @@ httpx
 elasticsearch
 aiohttp
 PyJWT
-# PREVERI �OE JE TREBA KAK��NE DODAT
+prometheus-client

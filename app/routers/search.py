@@ -6,7 +6,7 @@ from ..elastic.client import client
 from ..services.social_client import get_following, get_saved # TREBA ŠE NAREDIT !!
 from ..services.user_client import search_users as user_search
 from ..utils.auth import decode_jwt
-
+from ..metrics import search_queries, search_results_returned
 
 router = APIRouter(prefix="/search", tags=["Search"])
 bearer = HTTPBearer(auto_error=False)
@@ -53,6 +53,8 @@ async def search_recipes_feed(
         raise HTTPException(status_code=401, detail="Feed available only when logged in")
     following = normalize_following_ids(await get_following(token))
     if not following:
+        search_queries.labels(source="feed", status="success").inc()
+        search_results_returned.labels(source="feed", status="success").observe(0)
         return {"results": []}
 
     
@@ -98,6 +100,8 @@ async def search_recipes_feed(
         }
         for hit in response["hits"]["hits"]
     ]
+    search_queries.labels(source="feed", status="success").inc()
+    search_results_returned.labels(source="feed", status="success").observe(len(results))
     return {"results": results}
 
 
@@ -162,6 +166,8 @@ async def search_recipes_explore(
             }
             for hit in response["hits"]["hits"]
         ]
+        search_queries.labels(source="explore", status="success").inc()
+        search_results_returned.labels(source="explore", status="success").observe(len(results))
         return {"results": results}
     
     if q:
@@ -212,6 +218,8 @@ async def search_recipes_explore(
         }
         for hit in response["hits"]["hits"]
     ]
+    search_queries.labels(source="explore", status="success").inc()
+    search_results_returned.labels(source="explore", status="success").observe(len(results))
     return {"results": results}
 
 #filter for saved recipes and own recipes + filtering (za SAVED page)
@@ -235,6 +243,8 @@ async def search_recipes_saved(
     following = normalize_following_ids(await get_following(token))
 
     if not saved:
+        search_queries.labels(source="saved", status="success").inc()
+        search_results_returned.labels(source="saved", status="success").observe(0)
         return {"results": []}
     
     filters.append({
@@ -316,6 +326,8 @@ async def search_recipes_saved(
         }
         for hit in response["hits"]["hits"]
     ]
+    search_queries.labels(source="saved", status="success").inc()
+    search_results_returned.labels(source="saved", status="success").observe(len(results))
     return {"results": results}
 
 
@@ -386,6 +398,8 @@ async def search_my_recipes(
         }
         for hit in response["hits"]["hits"]
     ]
+    search_queries.labels(source="my_recipes", status="success").inc()
+    search_results_returned.labels(source="my_recipes", status="success").observe(len(results))
     return {"results": results}
 
 
@@ -395,4 +409,7 @@ async def search_users(
     skip: int = 0,
     limit: int = 20,
 ):
-    return await user_search(q=q, skip=skip, limit=limit)
+    results = await user_search(q=q, skip=skip, limit=limit)
+    search_queries.labels(source="users", status="success").inc()
+    search_results_returned.labels(source="users", status="success").observe(len(results))
+    return results
