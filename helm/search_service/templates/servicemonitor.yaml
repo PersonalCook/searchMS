@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: search-service-monitor
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - personalcook
+  selector:
+    matchLabels:
+      app: search-service
+  endpoints:
+    - port: http             
+      path: /metrics
+      interval: 15s
+      scheme: http
