@@ -19,8 +19,8 @@ spec:
     spec:
       containers:
         - name: search-service
-          image: piasotlar/search_service:v5
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - name: http
               containerPort: 8000
