@@ -6,10 +6,42 @@ from ..elastic.client import client
 from ..services.social_client import get_following, get_saved # TREBA ŠE NAREDIT !!
 from ..services.user_client import search_users as user_search
 from ..utils.auth import decode_jwt
+from ..schemas import ErrorResponse, SearchResults, UserSummary
 
 
 router = APIRouter(prefix="/search", tags=["Search"])
 bearer = HTTPBearer(auto_error=False)
+
+EXAMPLE_RESULTS = {
+    "results": [
+        {
+            "id": "10",
+            "score": 1.0,
+            "recipe": {
+                "recipe_id": 10,
+                "recipe_name": "Soup",
+                "user_id": 2,
+                "visibility": "public",
+                "category": "soup",
+                "total_time": 30,
+            },
+        }
+    ]
+}
+
+EXAMPLE_USERS = [{"user_id": 1, "username": "ana"}]
+
+ERROR_401 = {
+    "model": ErrorResponse,
+    "description": "Unauthorized",
+    "content": {"application/json": {"example": {"detail": "Invalid token"}}},
+}
+
+ERROR_500 = {
+    "model": ErrorResponse,
+    "description": "Internal error",
+    "content": {"application/json": {"example": {"detail": "Internal server error"}}},
+}
 
 def normalize_following_ids(following):
     # supports both: [ {"following_id": 6, ...}, ... ] and [6,7,...]
@@ -42,11 +74,23 @@ def get_user_and_token_optional(
 
 
 #filter for posts by people you follow (za FEED)
-@router.get("/feed")
+@router.get(
+    "/feed",
+    response_model=SearchResults,
+    summary="Search feed recipes",
+    description="Returns public and followers-only recipes from users the viewer follows.",
+    responses={
+        200: {"description": "OK", "content": {"application/json": {"example": EXAMPLE_RESULTS}}},
+        401: ERROR_401,
+        422: {"description": "Validation error"},
+        500: ERROR_500,
+    },
+)
 async def search_recipes_feed(
     user_token = Depends(get_user_and_token_optional),
-    skip: int = 0,
-    limit: int = 20):
+    skip: int = Query(0, ge=0, description="Number of items to skip", examples={"example": {"value": 0}}),
+    limit: int = Query(20, ge=1, le=100, description="Max items to return", examples={"example": {"value": 20}}),
+):
 
     viewer_id, token = user_token
     if token is None:
@@ -102,14 +146,38 @@ async def search_recipes_feed(
 
 
 #filter for all public recepies and recipes by people you follow + filtering (za EXPLORE page)
-@router.get("/explore")
+@router.get(
+    "/explore",
+    response_model=SearchResults,
+    summary="Search explore recipes",
+    description="Returns public recipes and, if logged in, followed users' recipes.",
+    responses={
+        200: {"description": "OK", "content": {"application/json": {"example": EXAMPLE_RESULTS}}},
+        401: ERROR_401,
+        422: {"description": "Validation error"},
+        500: ERROR_500,
+    },
+)
 async def search_recipes_explore(
     user_token = Depends(get_user_and_token_optional),
-    q: str | None = None,
-    category: str | None = None,
-    max_time: int | None = None, 
-    skip: int = 0,
-    limit: int = 20
+    q: str | None = Query(
+        None,
+        description="Full-text query across name/description/ingredients/keywords/category",
+        examples={"example": {"value": "pasta"}},
+    ),
+    category: str | None = Query(
+        None,
+        description="Filter by category",
+        examples={"example": {"value": "italian"}},
+    ),
+    max_time: int | None = Query(
+        None,
+        ge=1,
+        description="Filter by maximum total time (minutes)",
+        examples={"example": {"value": 45}},
+    ),
+    skip: int = Query(0, ge=0, description="Number of items to skip", examples={"example": {"value": 0}}),
+    limit: int = Query(20, ge=1, le=100, description="Max items to return", examples={"example": {"value": 20}}),
 ):
     viewer_id, token = user_token
     must = []
@@ -215,14 +283,38 @@ async def search_recipes_explore(
     return {"results": results}
 
 #filter for saved recipes and own recipes + filtering (za SAVED page)
-@router.get("/saved")
+@router.get(
+    "/saved",
+    response_model=SearchResults,
+    summary="Search saved recipes",
+    description="Returns saved recipes visible to the viewer with optional filters.",
+    responses={
+        200: {"description": "OK", "content": {"application/json": {"example": EXAMPLE_RESULTS}}},
+        401: ERROR_401,
+        422: {"description": "Validation error"},
+        500: ERROR_500,
+    },
+)
 async def search_recipes_saved(
     user_token = Depends(get_user_and_token_optional),
-    q: str | None = None,
-    category: str | None = None,
-    max_time: int | None = None, 
-    skip: int = 0,
-    limit: int = 20
+    q: str | None = Query(
+        None,
+        description="Full-text query across name/description/ingredients/keywords/category",
+        examples={"example": {"value": "soup"}},
+    ),
+    category: str | None = Query(
+        None,
+        description="Filter by category",
+        examples={"example": {"value": "vegan"}},
+    ),
+    max_time: int | None = Query(
+        None,
+        ge=1,
+        description="Filter by maximum total time (minutes)",
+        examples={"example": {"value": 30}},
+    ),
+    skip: int = Query(0, ge=0, description="Number of items to skip", examples={"example": {"value": 0}}),
+    limit: int = Query(20, ge=1, le=100, description="Max items to return", examples={"example": {"value": 20}}),
 ):
 
     must = []
@@ -323,14 +415,38 @@ async def search_recipes_saved(
 #mybe še autocomplete
 
 #filter for own recipes + filtering (za MY RECIPES page)
-@router.get("/my_recipes")
+@router.get(
+    "/my_recipes",
+    response_model=SearchResults,
+    summary="Search my recipes",
+    description="Returns viewer's own recipes with optional filters.",
+    responses={
+        200: {"description": "OK", "content": {"application/json": {"example": EXAMPLE_RESULTS}}},
+        401: ERROR_401,
+        422: {"description": "Validation error"},
+        500: ERROR_500,
+    },
+)
 async def search_my_recipes(
     user_token = Depends(get_user_and_token_optional),
-    q: str | None = None,
-    category: str | None = None,
-    max_time: int | None = None, 
-    skip: int = 0,
-    limit: int = 20
+    q: str | None = Query(
+        None,
+        description="Full-text query across name/description/ingredients/keywords/category",
+        examples={"example": {"value": "cake"}},
+    ),
+    category: str | None = Query(
+        None,
+        description="Filter by category",
+        examples={"example": {"value": "dessert"}},
+    ),
+    max_time: int | None = Query(
+        None,
+        ge=1,
+        description="Filter by maximum total time (minutes)",
+        examples={"example": {"value": 60}},
+    ),
+    skip: int = Query(0, ge=0, description="Number of items to skip", examples={"example": {"value": 0}}),
+    limit: int = Query(20, ge=1, le=100, description="Max items to return", examples={"example": {"value": 20}}),
 ):
     must = []
     filters = []
@@ -389,10 +505,20 @@ async def search_my_recipes(
     return {"results": results}
 
 
-@router.get("/users")
+@router.get(
+    "/users",
+    response_model=list[UserSummary],
+    summary="Search users",
+    description="Proxies user search to the user service.",
+    responses={
+        200: {"description": "OK", "content": {"application/json": {"example": EXAMPLE_USERS}}},
+        422: {"description": "Validation error"},
+        500: ERROR_500,
+    },
+)
 async def search_users(
-    q: str,
-    skip: int = 0,
-    limit: int = 20,
+    q: str = Query(..., description="Query for usernames", examples={"example": {"value": "an"}}),
+    skip: int = Query(0, ge=0, description="Number of items to skip", examples={"example": {"value": 0}}),
+    limit: int = Query(20, ge=1, le=100, description="Max items to return", examples={"example": {"value": 20}}),
 ):
     return await user_search(q=q, skip=skip, limit=limit)

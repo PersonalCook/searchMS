@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import search
 from app.elastic.index_setup import setup_indices
+from app.schemas import RootResponse, HealthResponse
 
 app = FastAPI(title="Search Service")
 
@@ -19,11 +20,27 @@ async def startup_event():
 
 app.include_router(search.router)
 
-#ali to še rabimo? ni mi uspel prevert - PREVERI
-@app.get("/")
+@app.get(
+    "/",
+    response_model=RootResponse,
+    summary="Service info",
+    responses={
+        200: {
+            "description": "OK",
+            "content": {"application/json": {"example": {"msg": "Search Service running!"}}},
+        }
+    },
+)
 def root():
-    return {"msg": "Search Service running in Docker!"}
+    return {"msg": "Search Service running!"}
 
-@app.get("/health")
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Health check",
+    responses={
+        200: {"description": "OK", "content": {"application/json": {"example": {"status": "ok"}}}}
+    },
+)
 def health():
     return {"status": "ok"}
