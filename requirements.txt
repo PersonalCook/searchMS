@@ -5,7 +5,7 @@ psycopg2-binary
 pydantic
 python-dotenv
 httpx
-elasticsearch
+elasticsearch==8.12.1
 aiohttp
 PyJWT
 prometheus-client
