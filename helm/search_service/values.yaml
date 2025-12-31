@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: piasotlar/search_service
   pullPolicy: IfNotPresent
-  tag: "v3"
+  tag: latest #zaenkart latest, kasneje treba dat konkreten tag
 
 imagePullSecrets: []
 
