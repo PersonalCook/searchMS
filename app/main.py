@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import search
 from app.elastic.index_setup import setup_indices
+import os
 
 from .metrics import (
     num_requests,
@@ -16,13 +17,17 @@ from app.schemas import RootResponse, HealthResponse
 
 app = FastAPI(title="Search Service")
 
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173")
+origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.on_event("startup")
 async def startup_event():
