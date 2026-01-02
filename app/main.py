@@ -63,7 +63,7 @@ async def metrics_middleware(request: Request, call_next):
 def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
  
-@app.get("/")
+
 @app.get(
     "/",
     response_model=RootResponse,

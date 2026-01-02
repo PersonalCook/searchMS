@@ -46,9 +46,9 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels
 */}}
 {{- define "search_service.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "search_service.name" . }}
+app.kubernetes.io/name: search_service
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
+{{- end -}}
 
 {{/*
 Create the name of the service account to use

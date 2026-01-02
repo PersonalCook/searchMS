@@ -3,7 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 import httpx
 from ..elastic.client import client
-from ..services.social_client import get_following, get_saved 
+from ..services.social_client import get_following, get_saved
 from ..services.user_client import search_users as user_search
 from ..utils.auth import decode_jwt
 from ..schemas import ErrorResponse, SearchResults, UserSummary
@@ -43,6 +43,7 @@ ERROR_500 = {
     "content": {"application/json": {"example": {"detail": "Internal server error"}}},
 }
 
+
 def normalize_following_ids(following):
     if not following:
         return []
@@ -50,13 +51,53 @@ def normalize_following_ids(following):
         return [int(f["following_id"]) for f in following if "following_id" in f]
     return [int(x) for x in following]
 
-def normalize_saved_recipe_ids(saved): 
+
+def normalize_saved_recipe_ids(saved):
     if not saved:
         return []
     if isinstance(saved[0], dict):
         return [int(x["recipe_id"]) for x in saved if "recipe_id" in x]
     return [int(x) for x in saved]
 
+
+def normalize_total_time_minutes(v):
+    """
+    Normalize total_time to integer minutes.
+    Accepts:
+      - int (already minutes)
+      - "HH:MM:SS" (string)
+      - "MM:SS" (string, just in case)
+    Returns int | None.
+    """
+    if v is None:
+        return None
+
+    if isinstance(v, int):
+        return v
+
+    if isinstance(v, str):
+        parts = v.split(":")
+        try:
+            if len(parts) == 3:
+                h, m, s = map(int, parts)
+                return h * 60 + m  # ignore seconds
+            if len(parts) == 2:
+                m, s = map(int, parts)
+                return m
+        except ValueError:
+            return None
+
+    return None
+
+
+def normalize_recipe_source(src: dict) -> dict:
+    """
+    Ensure ES _source matches our API schema expectations.
+    In particular: total_time must be int minutes (not "HH:MM:SS").
+    """
+    out = dict(src) if isinstance(src, dict) else {}
+    out["total_time"] = normalize_total_time_minutes(out.get("total_time"))
+    return out
 
 
 def get_user_and_token_optional(
@@ -71,7 +112,7 @@ def get_user_and_token_optional(
         raise HTTPException(status_code=401, detail=str(e))
 
 
-#filter for posts by people you follow (za FEED)
+# filter for posts by people you follow (za FEED)
 @router.get(
     "/feed",
     response_model=SearchResults,
@@ -85,22 +126,20 @@ def get_user_and_token_optional(
     },
 )
 async def search_recipes_feed(
-    user_token = Depends(get_user_and_token_optional),
+    user_token=Depends(get_user_and_token_optional),
     skip: int = Query(0, ge=0, description="Number of items to skip", examples={"example": {"value": 0}}),
     limit: int = Query(20, ge=1, le=100, description="Max items to return", examples={"example": {"value": 20}}),
 ):
-
     viewer_id, token = user_token
     if token is None:
         raise HTTPException(status_code=401, detail="Feed available only when logged in")
+
     following = normalize_following_ids(await get_following(token))
     if not following:
         search_queries.labels(source="feed", status="success").inc()
         search_results_returned.labels(source="feed", status="success").observe(0)
         return {"results": []}
 
-    
-    #query
     es_query = {
         "bool": {
             "must_not": [
@@ -127,27 +166,30 @@ async def search_recipes_feed(
             "minimum_should_match": 1
         }
     }
+
     response = await client.search(
-        index = "recipes",
-        query = es_query,
-        sort = [{"created_at":{"order":"desc"}}],
+        index="recipes",
+        query=es_query,
+        sort=[{"created_at": {"order": "desc"}}],
         from_=skip,
         size=limit
-        )
+    )
+
     results = [
         {
             "id": hit["_id"],
             "score": hit["_score"],
-            "recipe": hit["_source"],
+            "recipe": normalize_recipe_source(hit["_source"]),
         }
         for hit in response["hits"]["hits"]
     ]
+
     search_queries.labels(source="feed", status="success").inc()
     search_results_returned.labels(source="feed", status="success").observe(len(results))
     return {"results": results}
 
 
-#filter for all public recepies and recipes by people you follow + filtering (za EXPLORE page)
+# filter for all public recepies and recipes by people you follow + filtering (za EXPLORE page)
 @router.get(
     "/explore",
     response_model=SearchResults,
@@ -161,7 +203,7 @@ async def search_recipes_feed(
     },
 )
 async def search_recipes_explore(
-    user_token = Depends(get_user_and_token_optional),
+    user_token=Depends(get_user_and_token_optional),
     q: str | None = Query(
         None,
         description="Full-text query across name/description/ingredients/keywords/category",
@@ -185,6 +227,7 @@ async def search_recipes_explore(
     must = []
     filters = []
     following = []
+
     if token:
         following = normalize_following_ids(await get_following(token))
         visibility_block = {
@@ -209,18 +252,15 @@ async def search_recipes_explore(
     else:
         # unauthenticated users see only public recipes
         visibility_block = {"term": {"visibility": "public"}}
+
     filters.append(visibility_block)
 
     if not q and not category and not max_time:
-        es_query = {
-            "bool": {
-                "filter": filters,
-            }
-        }
+        es_query = {"bool": {"filter": filters}}
         response = await client.search(
-            index = "recipes",
-            query = es_query,
-            sort = [{"created_at":{"order":"desc"}}],
+            index="recipes",
+            query=es_query,
+            sort=[{"created_at": {"order": "desc"}}],
             from_=skip,
             size=limit
         )
@@ -228,14 +268,14 @@ async def search_recipes_explore(
             {
                 "id": hit["_id"],
                 "score": hit["_score"],
-                "recipe": hit["_source"],
+                "recipe": normalize_recipe_source(hit["_source"]),
             }
             for hit in response["hits"]["hits"]
         ]
         search_queries.labels(source="explore", status="success").inc()
         search_results_returned.labels(source="explore", status="success").observe(len(results))
         return {"results": results}
-    
+
     if q:
         must.append({
             "multi_match": {
@@ -252,17 +292,11 @@ async def search_recipes_explore(
         })
 
     if category:
-        filters.append({
-            "term": {"category": category}
-        })
+        filters.append({"term": {"category": category}})
 
     if max_time:
-        filters.append({
-            "range": {
-                "total_time": {"lte": max_time}
-            }
-        })
-    
+        filters.append({"range": {"total_time": {"lte": max_time}}})
+
     es_query = {
         "bool": {
             "must": must,
@@ -271,24 +305,27 @@ async def search_recipes_explore(
     }
 
     response = await client.search(
-        index = "recipes",
-        query = es_query,
+        index="recipes",
+        query=es_query,
         from_=skip,
         size=limit
     )
+
     results = [
         {
             "id": hit["_id"],
             "score": hit["_score"],
-            "recipe": hit["_source"],
+            "recipe": normalize_recipe_source(hit["_source"]),
         }
         for hit in response["hits"]["hits"]
     ]
+
     search_queries.labels(source="explore", status="success").inc()
     search_results_returned.labels(source="explore", status="success").observe(len(results))
     return {"results": results}
 
-#filter for saved recipes and own recipes + filtering (za SAVED page)
+
+# filter for saved recipes and own recipes + filtering (za SAVED page)
 @router.get(
     "/saved",
     response_model=SearchResults,
@@ -302,7 +339,7 @@ async def search_recipes_explore(
     },
 )
 async def search_recipes_saved(
-    user_token = Depends(get_user_and_token_optional),
+    user_token=Depends(get_user_and_token_optional),
     q: str | None = Query(
         None,
         description="Full-text query across name/description/ingredients/keywords/category",
@@ -322,7 +359,6 @@ async def search_recipes_saved(
     skip: int = Query(0, ge=0, description="Number of items to skip", examples={"example": {"value": 0}}),
     limit: int = Query(20, ge=1, le=100, description="Max items to return", examples={"example": {"value": 20}}),
 ):
-
     must = []
     filters = []
     viewer_id, token = user_token
@@ -336,7 +372,7 @@ async def search_recipes_saved(
         search_queries.labels(source="saved", status="success").inc()
         search_results_returned.labels(source="saved", status="success").observe(0)
         return {"results": []}
-    
+
     filters.append({
         "bool": {
             "should": [
@@ -365,10 +401,10 @@ async def search_recipes_saved(
                         ]
                     }
                 }
-
             ]
         }
     })
+
     if q:
         must.append({
             "multi_match": {
@@ -385,43 +421,35 @@ async def search_recipes_saved(
         })
 
     if category:
-        filters.append({
-            "term": {"category": category}
-        })
+        filters.append({"term": {"category": category}})
 
     if max_time:
-        filters.append({
-            "range": {
-                "total_time": {"lte": max_time}
-            }
-        })
-    
-    es_query = {
-        "bool": {
-            "must": must,
-            "filter": filters,
-        }
-    }
+        filters.append({"range": {"total_time": {"lte": max_time}}})
+
+    es_query = {"bool": {"must": must, "filter": filters}}
+
     response = await client.search(
-        index = "recipes",
-        query = es_query,
+        index="recipes",
+        query=es_query,
         from_=skip,
         size=limit
     )
+
     results = [
         {
             "id": hit["_id"],
             "score": hit["_score"],
-            "recipe": hit["_source"],
+            "recipe": normalize_recipe_source(hit["_source"]),
         }
         for hit in response["hits"]["hits"]
     ]
+
     search_queries.labels(source="saved", status="success").inc()
     search_results_returned.labels(source="saved", status="success").observe(len(results))
     return {"results": results}
 
 
-#filter for own recipes + filtering (za MY RECIPES page)
+# filter for own recipes + filtering (za MY RECIPES page)
 @router.get(
     "/my_recipes",
     response_model=SearchResults,
@@ -435,7 +463,7 @@ async def search_recipes_saved(
     },
 )
 async def search_my_recipes(
-    user_token = Depends(get_user_and_token_optional),
+    user_token=Depends(get_user_and_token_optional),
     q: str | None = Query(
         None,
         description="Full-text query across name/description/ingredients/keywords/category",
@@ -457,10 +485,12 @@ async def search_my_recipes(
 ):
     must = []
     filters = []
-    sort = [{"created_at":{"order":"desc"}}]
+    sort = [{"created_at": {"order": "desc"}}]
+
     viewer_id, token = user_token
     if token is None:
         raise HTTPException(status_code=401, detail="My recipes available only when logged in")
+
     filters.append({"term": {"user_id": viewer_id}})
 
     if q:
@@ -480,35 +510,29 @@ async def search_my_recipes(
         })
 
     if category:
-        filters.append({
-            "term": {"category": category}
-        })
+        filters.append({"term": {"category": category}})
+
     if max_time:
-        filters.append({
-            "range": {
-                "total_time": {"lte": max_time}
-            }
-        })
-    es_query = {
-        "bool": {
-            "must": must,
-            "filter": filters,
-        }
-    }
+        filters.append({"range": {"total_time": {"lte": max_time}}})
+
+    es_query = {"bool": {"must": must, "filter": filters}}
+
     response = await client.search(
-        index = "recipes",
-        query = es_query,
+        index="recipes",
+        query=es_query,
         from_=skip,
         size=limit
     )
+
     results = [
         {
             "id": hit["_id"],
             "score": hit["_score"],
-            "recipe": hit["_source"],
+            "recipe": normalize_recipe_source(hit["_source"]),
         }
         for hit in response["hits"]["hits"]
     ]
+
     search_queries.labels(source="my_recipes", status="success").inc()
     search_results_returned.labels(source="my_recipes", status="success").observe(len(results))
     return {"results": results}
