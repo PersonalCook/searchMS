@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: search-service-config
+  labels:
+    app: search-service
+data:
+  CORS_ORIGINS: {{ join "," .Values.config.corsOrigins | quote }}
+  JWT_ALGORITHM: {{ .Values.config.jwtAlgorithm | quote }}
+
+  ELASTICSEARCH_HOST: {{ .Values.config.elasticsearch.host | quote }}
+  ELASTICSEARCH_USER: {{ .Values.config.elasticsearch.user | quote }}
+
+  SOCIAL_SERVICE_URL: {{ .Values.config.services.socialServiceUrl | quote }}
+  RECIPE_SERVICE_URL: {{ .Values.config.services.recipeServiceUrl | quote }}
+  USER_SERVICE_URL: {{ .Values.config.services.userServiceUrl | quote }}

@@ -1,0 +1,68 @@
+replicaCount: 1
+
+image:
+  repository: piasotlar/search_service
+  tag: es8
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+config:
+  corsOrigins:
+    - "http://134.112.128.83"
+
+  jwtAlgorithm: "HS256"
+  elasticsearch:
+    host: "https://quickstart-es-http:9200"
+    user: "elastic"
+  services:
+    socialServiceUrl: "http://social-service:8000"
+    recipeServiceUrl: "http://recipe-service:8000/recipes"
+    userServiceUrl: "http://user-service:8000/users"
+
+  file:
+    enabled: true
+    name: config.yaml
+    content: |
+      cors:
+        origins:
+          - "http://localhost:5173"
+      auth:
+        jwt_algorithm: "HS256"
+      services:
+        social_service_url: "http://social-service:8000"
+        recipe_service_url: "http://recipe-service:8000/recipes"
+        user_service_url: "http://user-service:8000/users"
+      elasticsearch:
+        host: "https://quickstart-es-http:9200"
+        user: "elastic"
+
+secrets:
+  jwtSecret:
+    name: app-secrets
+    key: jwt-secret
+
+  elasticPassword:
+    name: quickstart-es-elastic-user
+    key: elastic
+
+probes:
+  livenessPath: /health
+  readinessPath: /health
+  livenessInitialDelay: 20
+  readinessInitialDelay: 10
+  periodSeconds: 10
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    labels:
+      release: monitoring
+    interval: 15s
+    path: /metrics
+    scheme: http
+

@@ -3,7 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 import httpx
 from ..elastic.client import client
-from ..services.social_client import get_following, get_saved # TREBA ŠE NAREDIT !!
+from ..services.social_client import get_following, get_saved 
 from ..services.user_client import search_users as user_search
 from ..utils.auth import decode_jwt
 from ..schemas import ErrorResponse, SearchResults, UserSummary
@@ -44,14 +44,13 @@ ERROR_500 = {
 }
 
 def normalize_following_ids(following):
-    # supports both: [ {"following_id": 6, ...}, ... ] and [6,7,...]
     if not following:
         return []
     if isinstance(following[0], dict):
         return [int(f["following_id"]) for f in following if "following_id" in f]
     return [int(x) for x in following]
 
-def normalize_saved_recipe_ids(saved): #probaj brez tega, mogoče dela
+def normalize_saved_recipe_ids(saved): 
     if not saved:
         return []
     if isinstance(saved[0], dict):
@@ -69,7 +68,6 @@ def get_user_and_token_optional(
         payload = decode_jwt(credentials.credentials)
         return payload["user_id"], credentials.credentials
     except Exception as e:
-        # invalid/expired token
         raise HTTPException(status_code=401, detail=str(e))
 
 
@@ -422,9 +420,6 @@ async def search_recipes_saved(
     search_results_returned.labels(source="saved", status="success").observe(len(results))
     return {"results": results}
 
-
-   
-#mybe še autocomplete
 
 #filter for own recipes + filtering (za MY RECIPES page)
 @router.get(
