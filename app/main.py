@@ -15,7 +15,13 @@ from starlette.responses import Response
 import time
 from app.schemas import RootResponse, HealthResponse
 
-app = FastAPI(title="Search Service")
+ROOT_PATH = os.getenv("ROOT_PATH", "").rstrip("/")
+
+app = FastAPI(
+    title="Search Service",
+    root_path=ROOT_PATH,
+)
+
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173")
 origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]

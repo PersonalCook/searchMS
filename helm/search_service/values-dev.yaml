@@ -23,7 +23,6 @@ service:
   targetPort: 8000
 
 env:
-  # Lokalni Vite/React dev server
   - name: CORS_ORIGINS
     value: "http://localhost:5173"
 
@@ -46,11 +45,13 @@ env:
     value: "HS256"
 
   - name: SOCIAL_SERVICE_URL
-    value: "http://social-service:8000"
+    value: "http://social-service-social-service:8000"
   - name: RECIPE_SERVICE_URL
     value: "http://recipe-service:8000/recipes"
   - name: USER_SERVICE_URL
     value: "http://user-service:8000/users"
+  - name: ROOT_PATH
+    value: "/api/search"
 
 livenessProbe:
   httpGet:
