@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: piasotlar/search_service
-  tag: v19
+  tag: v25
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -25,7 +25,7 @@ service:
 
 env:
   - name: CORS_ORIGINS
-    value: "http://134.112.128.83"
+    value: "http://134.112.152.8"
 
   - name: ELASTICSEARCH_HOST
     value: "https://quickstart-es-http:9200"
@@ -47,11 +47,13 @@ env:
     value: "HS256"
 
   - name: SOCIAL_SERVICE_URL
-    value: "http://social-service:8000"
+    value: http://social-service-social-service:8000
   - name: RECIPE_SERVICE_URL
     value: "http://recipe-service:8000/recipes"
   - name: USER_SERVICE_URL
     value: "http://user-service:8000/users"
+  - name: ROOT_PATH
+    value: "/api/search"
 
 
 livenessProbe:

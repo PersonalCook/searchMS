@@ -27,11 +27,9 @@ SearchMS provides recipe search, explore, feed, and saved views backed by Elasti
 
 The application configuration is fully separated from the implementation and is provided via multiple sources:
 
-1. **Kubernetes ConfigMap**
-   - Non-sensitive configuration injected as environment variables (and optionally as a mounted config file).
-2. **Kubernetes Secrets**
+1. **Kubernetes Secrets**
    - Sensitive values such as JWT secret and Elasticsearch credentials.
-3. **Helm values**
+2. **Helm values**
    - All configuration values are parameterized via Helm `values.yaml` files.
 
 ---
@@ -65,7 +63,7 @@ The application configuration is fully separated from the implementation and is 
 ## Kubernetes
 
 - Configuration via Helm values, ConfigMaps, and Secrets
-- API exposed through reverse proxy: http://134.112.128.83/api/search/
+- API exposed through reverse proxy: http://134.112.152.8/api/search/
 - Observability via `/metrics` endpoint
 
 Separate Helm values files are used:
@@ -136,9 +134,9 @@ Metrics are scraped using:
 
 ## API Docs
 
-- Swagger UI: http://134.112.128.83/api/search/docs
-- ReDoc: http://134.112.128.83/api/search/redoc
-- OpenAPI JSON: http://134.112.128.83/api/search/openapi.json
+- Swagger UI: http://134.112.152.8/api/search/docs
+- ReDoc: http://134.112.152.8/api/search/redoc
+- OpenAPI JSON: http://134.112.152.8/api/search/openapi.json
 
 ---
 
