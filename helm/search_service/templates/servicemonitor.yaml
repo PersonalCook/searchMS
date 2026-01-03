@@ -1,20 +1,21 @@
+{{- if .Values.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: search-service-monitor
-  namespace: monitoring
+  name: {{ include "search_service.fullname" . }}-monitor
+  namespace: {{ .Values.serviceMonitor.namespace }}
   labels:
-    release: monitoring
+    {{- toYaml .Values.serviceMonitor.labels | nindent 4 }}
 spec:
   namespaceSelector:
     matchNames:
-      - personalcook
+      - {{ .Release.Namespace }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: search_service
-      app.kubernetes.io/instance: search-service
+      {{- include "search_service.selectorLabels" . | nindent 6 }}
   endpoints:
     - port: http
-      path: /metrics
-      interval: 15s
-      scheme: http
+      path: {{ .Values.serviceMonitor.path }}
+      interval: {{ .Values.serviceMonitor.interval }}
+      scheme: {{ .Values.serviceMonitor.scheme }}
+{{- end }}

@@ -1,82 +1,84 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: search-service
+  name: {{ include "search_service.fullname" . }}
   labels:
-    app.kubernetes.io/name: search_service
-    app.kubernetes.io/instance: search-service
+    {{- include "search_service.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: search_service
-      app.kubernetes.io/instance: search-service
+      {{- include "search_service.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: search_service
-        app.kubernetes.io/instance: search-service
+        {{- include "search_service.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "search_service.serviceAccountName" . }}
+      {{- else if .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- end }}
+
       containers:
         - name: search-service
-          image: piasotlar/search_service:v16
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
           ports:
             - name: http
-              containerPort: 8000
+              containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+
+          {{- if .Values.env }}
           env:
-            # --- CORS ---
-            - name: CORS_ORIGINS
-              value: "http://134.112.128.83"
-            - name: CORS_ALLOW_CREDENTIALS
-              value: "true"
-            - name: CORS_ALLOW_METHODS
-              value: "*"
-            - name: CORS_ALLOW_HEADERS
-              value: "Authorization,Content-Type,Accept,Origin,X-Requested-With"
+            {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
 
-            # --- Existing env ---
-            - name: ELASTICSEARCH_HOST
-              value: https://quickstart-es-http:9200
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
 
-            - name: ELASTICSEARCH_USER
-              value: elastic
-
-            - name: ELASTICSEARCH_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: quickstart-es-elastic-user
-                  key: elastic
-
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: jwt-secret
-
-            - name: JWT_ALGORITHM
-              value: HS256
-
-            - name: SOCIAL_SERVICE_URL
-              value: http://social-service:8000
-
-            - name: RECIPE_SERVICE_URL
-              value: http://recipe-service:8000/recipes
-
-            - name: USER_SERVICE_URL
-              value: http://user-service:8000/users
-
+          {{- with .Values.livenessProbe }}
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 20
-            periodSeconds: 10
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
 
+          {{- with .Values.readinessProbe }}
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
